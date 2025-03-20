@@ -10,8 +10,9 @@
 class SV39_supervisor : public SV39_basic {
 public:
     using page_idx_t = BuddyAllocator<PAGESIZE>::elem_idx_t;
-    SV39_supervisor(std::shared_ptr<PhysicalMemory> pmem,
-                    std::shared_ptr<spdlog::logger> logger = nullptr);
+    SV39_supervisor(
+        std::shared_ptr<PhysicalMemory> pmem, std::shared_ptr<spdlog::logger> logger = nullptr
+    );
 
     /**
      * @brief 分配一个连续的虚拟地址空间，返回其起始地址

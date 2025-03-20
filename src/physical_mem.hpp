@@ -66,7 +66,6 @@ public:
         }
         return 0;
     }
-    
 
 private:
     uint8_t *m_mem;

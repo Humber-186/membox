@@ -39,6 +39,7 @@ public:
      * @param src 主机端源数据
      * @param size 要复制的字节数
      * @return 目标虚拟地址dst
+     * @note 这并非硬件MMU功能，仅为方便测试
      */
     vaddr_t memcpy(pagetable_t pagetable_root, vaddr_t dst, const void *src, size_t size) const;
 
@@ -49,6 +50,7 @@ public:
      * @param src 源数据的虚拟地址
      * @param size 要复制的字节数
      * @return 主机端目标缓冲区的指针dst
+     * @note 这并非硬件MMU功能，仅为方便测试
      */
     void *memcpy(pagetable_t pagetable_root, void *dst, vaddr_t src, size_t size) const;
 
@@ -95,16 +97,11 @@ public:
     // 从data中提取给定位域range范围的值
     static uint64_t bits_extract(uint64_t data, std::pair<uint8_t, uint8_t> range);
     // 将data_raw中给定位域range范围的值设置为value
-    static uint64_t
-    bits_set(uint64_t value, std::pair<uint8_t, uint8_t> range, uint64_t data_raw = 0);
+    static uint64_t bits_set(
+        uint64_t value, std::pair<uint8_t, uint8_t> range, uint64_t data_raw = 0
+    );
 
 protected:
     std::shared_ptr<PhysicalMemory> pmem;
     std::shared_ptr<spdlog::logger> logger = nullptr;
-
-    void decode_pagetable_one_level(
-        const paddr_t ptaddr, const vaddr_t vaddr, int level, std::function<void()> f_page_missing,
-        std::function<void(paddr_t paddr, pte_t accessibility)> f_leaf_pte,
-        std::function<void(paddr_t next_ptaddr)> f_next_level_pagetable
-    ) const;
 };

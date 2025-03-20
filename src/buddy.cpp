@@ -22,15 +22,13 @@ BuddyAllocator<elem_size>::BuddyAllocator(elem_idx_t total_pages, uint8_t max_or
 
 template <size_t elem_size>
 BuddyAllocator<elem_size>::elem_idx_t BuddyAllocator<elem_size>::allocate_idx(const uint8_t order) {
-    if (order > max_order)
-        return 0;
+    if (order > max_order) return 0;
 
     uint8_t current_order = order;
     while (current_order <= max_order && free_lists[current_order].empty()) {
         current_order++;
     }
-    if (current_order > max_order)
-        return 0;
+    if (current_order > max_order) return 0;
 
     elem_idx_t block = free_lists[current_order].front();
     free_lists[current_order].pop_front();
@@ -54,8 +52,7 @@ void BuddyAllocator<elem_size>::free_idx(elem_idx_t block, const uint8_t order) 
             break;
         }
         flist.erase(it);
-        if (buddy < block)
-            block = buddy;
+        if (buddy < block) block = buddy;
         cur_order++;
     }
     free_lists[cur_order].push_back(block);

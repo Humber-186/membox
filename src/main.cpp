@@ -88,8 +88,7 @@ int main(int argc, char **argv) {
                 logger->info("CrVmem refused");
             }
         } else if (action < 2.0) { // 销毁虚拟地址空间
-            if (goldModels.empty())
-                continue;
+            if (goldModels.empty()) continue;
             auto vmem_it = goldModels.begin();
             std::advance(vmem_it, std::rand() % goldModels.size());
             auto vmem = vmem_it->first;
@@ -101,8 +100,7 @@ int main(int argc, char **argv) {
                 assert(0);
             }
         } else if (action < 10.0) { // 申请内存区域&写操作
-            if (goldModels.empty())
-                continue;
+            if (goldModels.empty()) continue;
             auto it = goldModels.begin();
             std::advance(it, std::rand() % goldModels.size());
             auto vmem = it->first;
@@ -121,8 +119,7 @@ int main(int argc, char **argv) {
                 logger->info("WrData VMEM @ vaddr 0x{:x}, size {}", vaddr, dataSize);
             }
         } else if (action < 18.0) { // 释放虚拟内存
-            if (goldModels.empty())
-                continue;
+            if (goldModels.empty()) continue;
             auto vmem_it = goldModels.begin();
             std::advance(vmem_it, std::rand() % goldModels.size());
             auto vmem = vmem_it->first;
@@ -142,8 +139,7 @@ int main(int argc, char **argv) {
                 }
             }
         } else { // 读操作：随机选择一条记录验证数据
-            if (goldModels.empty())
-                continue;
+            if (goldModels.empty()) continue;
             auto vmem_it = goldModels.begin();
             std::advance(vmem_it, std::rand() % goldModels.size());
             auto vmem = vmem_it->first;
@@ -157,11 +153,13 @@ int main(int argc, char **argv) {
                 std::vector<uint8_t> readData(expectedData.size(), 0);
                 mmu->memcpy(vmem, readData.data(), vaddr, expectedData.size());
                 if (readData == expectedData) {
-                    logger->info("RdData VMEM @ vaddr 0x{:x}, size {}, PASS", vaddr,
-                                 expectedData.size());
+                    logger->info(
+                        "RdData VMEM @ vaddr 0x{:x}, size {}, PASS", vaddr, expectedData.size()
+                    );
                 } else {
-                    logger->error("RdData VMEM @ vaddr 0x{:x}, size {}, FAIL", vaddr,
-                                  expectedData.size());
+                    logger->error(
+                        "RdData VMEM @ vaddr 0x{:x}, size {}, FAIL", vaddr, expectedData.size()
+                    );
                     assert(0);
                 }
             }
