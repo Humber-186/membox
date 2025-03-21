@@ -8,10 +8,9 @@
 #include <new>
 #include <spdlog/logger.h>
 
-typedef uint64_t paddr_t;
-
 class PhysicalMemory {
 public:
+    using paddr_t = uint64_t;
     const uint64_t m_size;
     const paddr_t m_addr_floor = 4096;
 

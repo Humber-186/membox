@@ -1,31 +1,33 @@
 #include "physical_mem.hpp"
-#include "sv39_basic.hpp"
-#include "sv39_supervisor.hpp"
 #include <cmath>
+#include <cstdlib>
+#include <ctime>
 #include <fmt/format.h>
+#include <map>
 #include <memory>
 #include <random>
 #include <spdlog/sinks/stdout_color_sinks.h>
-// 新增的头文件
-#include <cstdlib>
-#include <ctime>
-#include <map>
 #include <vector>
 
-int main(int argc, char **argv) {
-    auto logger = spdlog::stdout_color_mt("main");
+template <typename SV_basic, typename SV_supervisor>
+int test(std::shared_ptr<spdlog::logger> logger) {
     auto pmem = std::make_shared<PhysicalMemory>((1ull << 32), logger);
-    auto sv39 = std::make_shared<SV39_supervisor>(pmem, logger);
-    auto mmu = std::make_shared<SV39_basic>(pmem, logger);
+    auto sv = std::make_shared<SV_supervisor>(pmem, logger);
+    auto mmu = std::make_shared<SV_basic>(pmem, logger);
+
+    constexpr size_t PAGESIZE = SV_basic::PAGESIZE;
+    using pagetable_t = typename SV_basic::pagetable_t;
+    using vaddr_t = typename SV_basic::vaddr_t;
+    using paddr_t = typename SV_basic::paddr_t;
 
     //
     // --- 测试基本功能 ---
     //
 
-    SV39_basic::pagetable_t vmem1 = sv39->create_pagetable();
+    pagetable_t vmem1 = sv->create_pagetable();
     vaddr_t vaddr1 = 0x1000;
     char data[] = "Hello, World!";
-    sv39->mmap(vmem1, vaddr1, sizeof(data));
+    sv->mmap(vmem1, vaddr1, sizeof(data));
     mmu->memcpy(vmem1, vaddr1, data, sizeof(data));
 
     paddr_t paddr1 = mmu->translate(vmem1, vaddr1);
@@ -33,8 +35,8 @@ int main(int argc, char **argv) {
     mmu->memcpy(vmem1, data_read_out, vaddr1, sizeof(data));
 
     logger->info("vaddr1=0x{:x}, paddr1=0x{:x}, data_read_out={}", vaddr1, paddr1, data_read_out);
-    sv39->munmap(vmem1, vaddr1, sizeof(data));
-    sv39->destroy_pagetable(vmem1);
+    sv->munmap(vmem1, vaddr1, sizeof(data));
+    sv->destroy_pagetable(vmem1);
 
     //
     // --- 随机测试 ---
@@ -45,17 +47,17 @@ int main(int argc, char **argv) {
     std::default_random_engine re;
 
     // 删除原有的pagetables和goldModels定义，改为：
-    std::map<SV39_basic::pagetable_t, std::map<vaddr_t, std::vector<uint8_t>>> goldModels;
+    std::map<pagetable_t, std::map<vaddr_t, std::vector<uint8_t>>> goldModels;
 
     // 初始化一些虚拟地址空间，每个空间中写入5段随机数据
     for (int i = 0; i < 5; i++) {
-        auto vmem = sv39->create_pagetable();
+        auto vmem = sv->create_pagetable();
         if (vmem != 0) {
             goldModels[vmem] = {}; // 新增虚拟地址空间与其gold model映射
             for (int j = 0; j < 5; j++) {
-                vaddr_t vaddr = (std::rand() % 1000) * SV39_basic::PAGESIZE; // 页对齐地址
-                size_t dataSize = 1 + std::rand() % 8192;                    // 数据大小
-                vaddr = sv39->mmap(vmem, vaddr, dataSize);
+                vaddr_t vaddr = (std::rand() % 1000) * PAGESIZE; // 页对齐地址
+                size_t dataSize = 1 + std::rand() % 8192;        // 数据大小
+                vaddr = sv->mmap(vmem, vaddr, dataSize);
                 if (vaddr == 0) {
                     logger->warn("Init WrData mmap refused");
                     continue;
@@ -80,7 +82,7 @@ int main(int argc, char **argv) {
     for (int i = 0; i < testCount; i++) {
         double action = randf64(re);
         if (action < 1.0) { // 新建虚拟地址空间
-            auto new_pagetable = sv39->create_pagetable();
+            auto new_pagetable = sv->create_pagetable();
             if (new_pagetable != 0) {
                 goldModels[new_pagetable] = {};
                 logger->info("CrVmem VMEM @ paddr 0x{:x}", new_pagetable);
@@ -92,7 +94,7 @@ int main(int argc, char **argv) {
             auto vmem_it = goldModels.begin();
             std::advance(vmem_it, std::rand() % goldModels.size());
             auto vmem = vmem_it->first;
-            if (sv39->destroy_pagetable(vmem) == 0) {
+            if (sv->destroy_pagetable(vmem) == 0) {
                 logger->info("RmVmem VMEM @ paddr 0x{:x}", vmem);
                 goldModels.erase(vmem);
             } else {
@@ -104,9 +106,9 @@ int main(int argc, char **argv) {
             auto it = goldModels.begin();
             std::advance(it, std::rand() % goldModels.size());
             auto vmem = it->first;
-            vaddr_t vaddr = (std::rand() % 1000) * SV39_basic::PAGESIZE;
+            vaddr_t vaddr = (std::rand() % 1000) * PAGESIZE;
             size_t dataSize = 1 + std::rand() % 8192; // 数据大小
-            vaddr = sv39->mmap(vmem, vaddr, dataSize);
+            vaddr = sv->mmap(vmem, vaddr, dataSize);
             if (vaddr == 0) {
                 logger->info("WrData mmap refused");
             } else {
@@ -130,7 +132,7 @@ int main(int argc, char **argv) {
                 std::advance(vdata_it, std::rand() % goldModels[vmem].size());
                 vaddr_t vaddr = vdata_it->first;
                 size_t dataSize = goldModels[vmem][vaddr].size();
-                if (sv39->munmap(vmem, vaddr, dataSize) == 0) {
+                if (sv->munmap(vmem, vaddr, dataSize) == 0) {
                     logger->info("RmData VMEM @ vaddr 0x{:x}, size {}", vaddr, dataSize);
                     goldModels[vmem].erase(vaddr);
                 } else {
@@ -168,10 +170,28 @@ int main(int argc, char **argv) {
 
     // 销毁剩余的虚拟地址空间
     for (const auto &kv : goldModels) {
-        sv39->destroy_pagetable(kv.first);
+        sv->destroy_pagetable(kv.first);
     }
-    assert(sv39->get_vmem_usage() == 0);
-    assert(sv39->get_pmem_usage() == 0);
+    assert(sv->get_vmem_usage() == 0);
+    assert(sv->get_pmem_usage() == 0);
     logger->info("All test passed");
     return 0;
+}
+
+#include "sv32_basic.hpp"
+#include "sv32_supervisor.hpp"
+#include "sv39_basic.hpp"
+#include "sv39_supervisor.hpp"
+
+int main() {
+    auto logger = spdlog::stdout_color_mt("main");
+    int result39 = test<SV39_basic, SV39_supervisor>(logger);
+    int result32 = test<SV32_basic, SV32_supervisor>(logger);
+
+    if (result39 == 0 && result32 == 0) {
+        logger->info("All test passed: SV39 and SV32");
+        return 0;
+    } else {
+        return -1;
+    }
 }

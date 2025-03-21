@@ -1,7 +1,7 @@
-#include "sv39_basic.hpp"
+#include "sv32_basic.hpp"
 #include <cassert>
 
-uint64_t SV39_basic::bits_extract(uint64_t data, std::pair<uint8_t, uint8_t> range) {
+uint64_t SV32_basic::bits_extract(uint64_t data, std::pair<uint8_t, uint8_t> range) {
     assert(range.first >= range.second);
     assert(range.first < 64);
     assert(range.second < 64);
@@ -10,7 +10,7 @@ uint64_t SV39_basic::bits_extract(uint64_t data, std::pair<uint8_t, uint8_t> ran
     return (data >> range.second) & mask;
 }
 
-uint64_t SV39_basic::bits_set(uint64_t value, std::pair<uint8_t, uint8_t> range, uint64_t data) {
+uint64_t SV32_basic::bits_set(uint64_t value, std::pair<uint8_t, uint8_t> range, uint64_t data) {
     assert(range.first >= range.second);
     assert(range.first < 64);
     assert(range.second < 64);
@@ -20,7 +20,7 @@ uint64_t SV39_basic::bits_set(uint64_t value, std::pair<uint8_t, uint8_t> range,
     return (data & ~(mask << range.second)) | ((value & mask) << range.second);
 }
 
-SV39_basic::paddr_t SV39_basic::translate(const paddr_t ptroot, const vaddr_t vaddr) const {
+SV32_basic::paddr_t SV32_basic::translate(const paddr_t ptroot, const vaddr_t vaddr) const {
     assert(ptroot % PAGESIZE == 0);
     using PTE = BITRANGE::PTE;
     using VA = BITRANGE::VA;
@@ -31,9 +31,8 @@ SV39_basic::paddr_t SV39_basic::translate(const paddr_t ptroot, const vaddr_t va
         pte_t pte;
         if (pmem->read(pte_addr, &pte, sizeof(pte_t))) {
             logger->error(
-                "SV39 failed to get PTE from PMEM at 0x{:x}, "
-                "ptroot=0x{:x}, vaddr=0x{:x}",
-                pte_addr, ptroot, vaddr
+                "SV32 failed to get PTE from PMEM 0x{:x}, ptroot=0x{:x}, vaddr=0x{:x}", pte_addr,
+                ptroot, vaddr
             );
             assert(0);
             return 0;
@@ -45,7 +44,7 @@ SV39_basic::paddr_t SV39_basic::translate(const paddr_t ptroot, const vaddr_t va
         }
         if (bits_extract(pte, PTE::R) == 0 && bits_extract(pte, PTE::W) == 1) {
             logger->error(
-                "SV39 PTE error: R=0 && W=1 PAGE-FAULT, ptroot=0x{:x}, vaddr=0x{:x}", ptroot, vaddr
+                "SV32 PTE error: R=0 && W=1 PAGE-FAULT, ptroot=0x{:x}, vaddr=0x{:x}", ptroot, vaddr
             );
             assert(0); // todo: how to deal with pagefault exception?
             return 0;
@@ -60,8 +59,8 @@ SV39_basic::paddr_t SV39_basic::translate(const paddr_t ptroot, const vaddr_t va
                 // lower-level PTE.PPN should be 0
                 if (bits_extract(pte, PTE::PPN[level]) != 0ull) {
                     logger->error(
-                        "SV39 PTE error: superpage PTE.PPN[{}] != 0 "
-                        "PAGE-FAULT, ptroot=0x{:x}, vaddr=0x{:x}",
+                        "SV32 PTE error: superpage PTE.PPN[{}]!=0 PAGE-FAULT, "
+                        "ptroot=0x{:x}, vaddr=0x{:x}",
                         level, ptroot, vaddr
                     );
                 }
@@ -76,8 +75,8 @@ SV39_basic::paddr_t SV39_basic::translate(const paddr_t ptroot, const vaddr_t va
         } else {              // Next level PTE found
             if (level == 0) { // already reach final level, next level does not exist
                 logger->error(
-                    "SV39 PTE error: point to non-exist next level pagetable "
-                    "PAGE-FAULT, ptroot=0x{:x}, vaddr=0x{:x}",
+                    "SV32 PTE error: point to non-exist next level pagetable PAGE-FAULT, "
+                    "ptroot=0x{:x}, vaddr=0x{:x}",
                     ptroot, vaddr
                 );
                 assert(0);
@@ -92,7 +91,7 @@ SV39_basic::paddr_t SV39_basic::translate(const paddr_t ptroot, const vaddr_t va
     return -1;
 }
 
-SV39_basic::vaddr_t SV39_basic::memcpy(
+SV32_basic::vaddr_t SV32_basic::memcpy(
     pagetable_t pagetable_root, vaddr_t dst, const void *src_, size_t size
 ) const {
     const uint8_t *src = static_cast<const uint8_t *>(src_);
@@ -103,12 +102,12 @@ SV39_basic::vaddr_t SV39_basic::memcpy(
         size_t chunk = std::min(size - offset, static_cast<size_t>(PAGESIZE - page_offset));
         paddr_t cur_paddr = translate(pagetable_root, cur_vaddr);
         if (cur_paddr == 0) {
-            logger->error("SV39 memcpy(write): failed to translate vaddr 0x{:x}", cur_vaddr);
+            logger->error("SV32 memcpy(write): failed to translate vaddr 0x{:x}", cur_vaddr);
             assert(0);
         }
         if (pmem->write(cur_paddr, src + offset, chunk)) {
             logger->error(
-                "SV39 memcpy(write): failed to write physical memory at 0x{:x}", cur_paddr
+                "SV32 memcpy(write): failed to write physical memory at 0x{:x}", cur_paddr
             );
             assert(0);
         }
@@ -117,7 +116,7 @@ SV39_basic::vaddr_t SV39_basic::memcpy(
     return dst;
 }
 
-void *SV39_basic::memcpy(pagetable_t ptroot, void *dst_, vaddr_t src, size_t size) const {
+void *SV32_basic::memcpy(pagetable_t ptroot, void *dst_, vaddr_t src, size_t size) const {
     uint8_t *dst = static_cast<uint8_t *>(dst_);
     size_t offset = 0;
     while (offset < size) {
@@ -126,11 +125,11 @@ void *SV39_basic::memcpy(pagetable_t ptroot, void *dst_, vaddr_t src, size_t siz
         size_t chunk = std::min(size - offset, static_cast<size_t>(PAGESIZE - page_offset));
         paddr_t cur_paddr = translate(ptroot, cur_vaddr);
         if (cur_paddr == 0) {
-            logger->error("SV39 memcpy(read): failed to translate vaddr 0x{:x}", cur_vaddr);
+            logger->error("SV32 memcpy(read): failed to translate vaddr 0x{:x}", cur_vaddr);
             assert(0);
         }
         if (pmem->read(cur_paddr, dst + offset, chunk)) {
-            logger->error("SV39 memcpy(read): failed to read PMEM 0x{:x}", cur_paddr);
+            logger->error("SV32 memcpy(read): failed to read PMEM 0x{:x}", cur_paddr);
             assert(0);
         }
         offset += chunk;

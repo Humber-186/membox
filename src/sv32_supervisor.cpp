@@ -1,16 +1,16 @@
-#include "sv39_supervisor.hpp"
+#include "sv32_supervisor.hpp"
 #include "physical_mem.hpp"
 #include <algorithm>
 #include <cassert>
 #include <utility>
 #include <vector>
 
-SV39_supervisor::SV39_supervisor(
+SV32_supervisor::SV32_supervisor(
     std::shared_ptr<PhysicalMemory> pmem_, std::shared_ptr<spdlog::logger> logger_
 )
-    : SV39_basic(pmem_, logger_), buddy(pmem_->m_size / PAGESIZE, 11) {}
+    : SV32_basic(pmem_, logger_), buddy(pmem_->m_size / PAGESIZE, 11) {}
 
-SV39_supervisor::pagetable_t SV39_supervisor::create_pagetable() {
+SV32_supervisor::pagetable_t SV32_supervisor::create_pagetable() {
     paddr_t ptroot = buddy.allocate(0);
     if (ptroot == 0) {
         return 0;
@@ -21,7 +21,7 @@ SV39_supervisor::pagetable_t SV39_supervisor::create_pagetable() {
     }));
     m_ptroots.push_back(ptroot);
     if (pmem->fill(ptroot, 0, PAGESIZE)) {
-        logger->error("SV39 failed to reset newly allocated pagetable to 0 at PMEM 0x{:x}", ptroot);
+        logger->error("SV32 failed to reset newly allocated pagetable to 0 at PMEM 0x{:x}", ptroot);
         assert(0);
         buddy.free(ptroot, 0);
         return 0;
@@ -29,7 +29,7 @@ SV39_supervisor::pagetable_t SV39_supervisor::create_pagetable() {
     return ptroot;
 }
 
-int SV39_supervisor::destroy_pagetable_one_level(const pagetable_t ptaddr, int level) {
+int SV32_supervisor::destroy_pagetable_one_level(const pagetable_t ptaddr, int level) {
     assert(ptaddr % PAGESIZE == 0);
     using PTE = BITRANGE::PTE;
     using VA = BITRANGE::VA;
@@ -37,7 +37,7 @@ int SV39_supervisor::destroy_pagetable_one_level(const pagetable_t ptaddr, int l
     for (paddr_t pte_addr = ptaddr; pte_addr < ptaddr + PAGESIZE; pte_addr += sizeof(pte_t)) {
         pte_t pte;
         if (pmem->read(pte_addr, &pte, sizeof(pte_t))) {
-            logger->error("SV39 failed to get PTE from PMEM 0x{:x}", pte_addr);
+            logger->error("SV32 failed to get PTE from PMEM 0x{:x}", pte_addr);
             assert(0);
             return -1;
         }
@@ -46,7 +46,7 @@ int SV39_supervisor::destroy_pagetable_one_level(const pagetable_t ptaddr, int l
         }
         if (bits_extract(pte, PTE::XWR)) { // leaf PTE
             if (level != 0) {
-                logger->error("SV39 internal page-free error: large page not supported yet");
+                logger->error("SV32 internal page-free error: large page not supported yet");
                 assert(0);
                 return -1;
             }
@@ -57,7 +57,7 @@ int SV39_supervisor::destroy_pagetable_one_level(const pagetable_t ptaddr, int l
         } else { // pointer to next level pagetable
             if (level == 0) {
                 logger->error(
-                    "SV39 PTE error: point to non-exist next level pagetable "
+                    "SV32 PTE error: point to non-exist next level pagetable "
                     "PAGE-FAULT, ptroot=0x{:x}, vaddr=0x{:x}",
                     ptaddr, 0
                 );
@@ -75,7 +75,7 @@ int SV39_supervisor::destroy_pagetable_one_level(const pagetable_t ptaddr, int l
     return 0;
 }
 
-int SV39_supervisor::destroy_pagetable(pagetable_t ptroot) {
+int SV32_supervisor::destroy_pagetable(pagetable_t ptroot) {
     assert_ptroot(ptroot);
     int result = destroy_pagetable_one_level(ptroot, LEVELS - 1);
     if (result == 0) {
@@ -84,7 +84,9 @@ int SV39_supervisor::destroy_pagetable(pagetable_t ptroot) {
     return result;
 }
 
-SV39_supervisor::vaddr_t SV39_supervisor::mmap(const pagetable_t ptroot, vaddr_t vaddr, const size_t size) {
+SV32_supervisor::vaddr_t SV32_supervisor::mmap(
+    const pagetable_t ptroot, vaddr_t vaddr, const size_t size
+) {
     if (size == 0) {
         return 0;
     }
@@ -123,7 +125,7 @@ SV39_supervisor::vaddr_t SV39_supervisor::mmap(const pagetable_t ptroot, vaddr_t
     return vaddr;
 }
 
-int SV39_supervisor::munmap(const pagetable_t ptroot, vaddr_t vaddr, size_t size) {
+int SV32_supervisor::munmap(const pagetable_t ptroot, vaddr_t vaddr, size_t size) {
     assert_ptroot(ptroot);
     assert(vaddr % PAGESIZE == 0);
     if (size == 0) {
@@ -139,7 +141,7 @@ int SV39_supervisor::munmap(const pagetable_t ptroot, vaddr_t vaddr, size_t size
     return 0;
 }
 
-int SV39_supervisor::alloc_one_page(const pagetable_t ptroot, const vaddr_t vaddr) {
+int SV32_supervisor::alloc_one_page(const pagetable_t ptroot, const vaddr_t vaddr) {
     assert_ptroot(ptroot);
     assert(vaddr % PAGESIZE == 0);
     assert(!translate(ptroot, vaddr));
@@ -159,7 +161,7 @@ int SV39_supervisor::alloc_one_page(const pagetable_t ptroot, const vaddr_t vadd
         pte_addr = ptaddr + bits_extract(vaddr, VA::VPN[level]) * sizeof(pte_t);
         if (pmem->read(pte_addr, &pte, sizeof(pte_t))) {
             logger->error(
-                "SV39 failed to get PTE from PMEM at 0x{:x}, "
+                "SV32 failed to get PTE from PMEM at 0x{:x}, "
                 "ptroot=0x{:x}, vaddr=0x{:x}",
                 pte_addr, ptroot, vaddr
             );
@@ -171,7 +173,7 @@ int SV39_supervisor::alloc_one_page(const pagetable_t ptroot, const vaddr_t vadd
         }
         if (bits_extract(pte, PTE::R) == 0 && bits_extract(pte, PTE::W) == 1) {
             logger->error(
-                "SV39 PTE error: R=0 && W=1 PAGE-FAULT, ptroot=0x{:x}, vaddr=0x{:x}", ptroot, vaddr
+                "SV32 PTE error: R=0 && W=1 PAGE-FAULT, ptroot=0x{:x}, vaddr=0x{:x}", ptroot, vaddr
             );
             assert(0); // todo: how to deal with pagefault exception?
             return 0;
@@ -180,7 +182,7 @@ int SV39_supervisor::alloc_one_page(const pagetable_t ptroot, const vaddr_t vadd
         if (bits_extract(pte, PTE::R) || bits_extract(pte, PTE::X)) {
             // Leaf PTE found
             logger->error(
-                "SV39 internal alloc error: alloc at existing vaddr 0x{:x}, "
+                "SV32 internal alloc error: alloc at existing vaddr 0x{:x}, "
                 "this problem should be already solved by caller(mmap)",
                 vaddr
             );
@@ -188,7 +190,7 @@ int SV39_supervisor::alloc_one_page(const pagetable_t ptroot, const vaddr_t vadd
         } else {              // Next level PTE found
             if (level == 0) { // already reach final level, next level does not exist
                 logger->error(
-                    "SV39 PTE error: point to non-exist next level pagetable "
+                    "SV32 PTE error: point to non-exist next level pagetable "
                     "PAGE-FAULT, ptroot=0x{:x}, vaddr=0x{:x}",
                     ptroot, vaddr
                 );
@@ -220,9 +222,6 @@ int SV39_supervisor::alloc_one_page(const pagetable_t ptroot, const vaddr_t vadd
     if (paddr == 0) {
         goto RET_ERR;
     }
-    // assert(std::all_of(m_ppages.begin(), m_ppages.end(),
-    //                    [paddr](auto &existing_ppage) { return existing_ppage != paddr; }));
-    // m_ppages.push_back(paddr);
     assert(paddr % PAGESIZE == 0);
     // no need to allocated_pages.push_back(paddr), we are already success
     pte = bits_set(bits_extract(paddr, PA::PPNFULL), PTE::PPNFULL, 0);
@@ -235,12 +234,9 @@ int SV39_supervisor::alloc_one_page(const pagetable_t ptroot, const vaddr_t vadd
 
     // success to alloc one page, commit all changes now
     for (auto &page : allocated_pages) {
-        // assert(std::all_of(m_ppages.begin(), m_ppages.end(),
-        //                    [page](auto &existing_ppage) { return existing_ppage != page; }));
-        // m_ppages.push_back(page);
         if (pmem->fill(page, 0, PAGESIZE)) {
             logger->error(
-                "SV39 failed to reset newly allocated pagetable to 0 at PMEM 0x{:x}, "
+                "SV32 failed to reset newly allocated pagetable to 0 at PMEM 0x{:x}, "
                 "ptroot=0x{:x}, vaddr=0x{:x}",
                 page, ptroot, vaddr
             );
@@ -251,7 +247,7 @@ int SV39_supervisor::alloc_one_page(const pagetable_t ptroot, const vaddr_t vadd
     for (auto &p : commit_ptes) {
         if (pmem->write(p.first, &p.second, sizeof(pte_t))) {
             logger->error(
-                "SV39 failed to write PTE to PMEM at 0x{:x}, "
+                "SV32 failed to write PTE to PMEM at 0x{:x}, "
                 "ptroot=0x{:x}, vaddr=0x{:x}",
                 p.first, ptroot, vaddr
             );
@@ -269,7 +265,7 @@ RET_ERR:
     return -1;
 }
 
-int SV39_supervisor::free_one_page(pagetable_t ptroot, vaddr_t vaddr) {
+int SV32_supervisor::free_one_page(pagetable_t ptroot, vaddr_t vaddr) {
     assert_ptroot(ptroot);
     assert(vaddr % PAGESIZE == 0);
     assert(translate(ptroot, vaddr));
@@ -285,7 +281,7 @@ int SV39_supervisor::free_one_page(pagetable_t ptroot, vaddr_t vaddr) {
         pte_t pte;
         if (pmem->read(pte_addr, &pte, sizeof(pte_t))) {
             logger->error(
-                "SV39 failed to get PTE from PMEM at 0x{:x}, "
+                "SV32 failed to get PTE from PMEM at 0x{:x}, "
                 "ptroot=0x{:x}, vaddr=0x{:x}",
                 pte_addr, ptroot, vaddr
             );
@@ -294,7 +290,7 @@ int SV39_supervisor::free_one_page(pagetable_t ptroot, vaddr_t vaddr) {
         }
         if (bits_extract(pte, PTE::V) == 0) {
             logger->error(
-                "SV39 PTE.V==0 page-missing PAGE-FAULT during internal page-free, PTE at "
+                "SV32 PTE.V==0 page-missing PAGE-FAULT during internal page-free, PTE at "
                 "PMEM 0x{:x}, ptroot=0x{:x}, vaddr=0x{:x}",
                 pte_addr, ptroot, vaddr
             );
@@ -303,35 +299,27 @@ int SV39_supervisor::free_one_page(pagetable_t ptroot, vaddr_t vaddr) {
         }
         if (bits_extract(pte, PTE::R) == 0 && bits_extract(pte, PTE::W) == 1) {
             logger->error(
-                "SV39 PTE error: R=0 && W=1 PAGE-FAULT, ptroot=0x{:x}, vaddr=0x{:x}", ptroot, vaddr
+                "SV32 PTE error: R=0 && W=1 PAGE-FAULT, ptroot=0x{:x}, vaddr=0x{:x}", ptroot, vaddr
             );
             assert(0);
             return -1;
         }
         // Already known pte.v == 1
-        // pagetables.push_back(ptaddr);
-        // pte_addrs.push_back(pte_addr);
         if (bits_extract(pte, PTE::R) || bits_extract(pte, PTE::X)) {
             // Leaf PTE found
             if (level != 0) { // for super-page (level != 0)
                 logger->error(
-                    "SV39 page free do not support superpage yet, ptroot=0x{:x}, vaddr=0x{:x}",
+                    "SV32 page free do not support superpage yet, ptroot=0x{:x}, vaddr=0x{:x}",
                     ptroot, vaddr
                 );
             }
             paddr_t paddr = bits_set(bits_extract(pte, PTE::PPNFULL), PA::PPNFULL);
-            // paddr = bits_set(bits_extract(vaddr, VA::PAGEOFFSET), PA::PAGEOFFSET, paddr);
             assert(paddr != 0);
-            // {
-            //     auto it = std::find(m_ppages.begin(), m_ppages.end(), paddr);
-            //     assert(it != m_ppages.end());
-            //     m_ppages.erase(it);
-            // }
             buddy.free(paddr, 0);
             pte = 0;
             if (pmem->write(pte_addr, &pte, sizeof(pte_t))) {
                 logger->error(
-                    "SV39 failed to write PTE to PMEM at 0x{:x}, "
+                    "SV32 failed to write PTE to PMEM at 0x{:x}, "
                     "ptroot=0x{:x}, vaddr=0x{:x}",
                     pte_addr, ptroot, vaddr
                 );
@@ -339,15 +327,15 @@ int SV39_supervisor::free_one_page(pagetable_t ptroot, vaddr_t vaddr) {
                 return -1;
             }
             // TODO: maybe we need to check if the pagetables need to be freed
-            //       but currently, we do not free pagetables
+            //       but currently, we do not free pagetables until destroy_pagetable
             assert(m_vpage_usage > 0);
             m_vpage_usage--;
             return 0;
         } else { // Next level PTE found
             if (level == 0) {
                 logger->error(
-                    "SV39 PTE error: point to non-exist next level pagetable "
-                    "PAGE-FAULT, ptroot=0x{:x}, vaddr=0x{:x}",
+                    "SV32 PTE error: point to non-exist next level pagetable PAGE-FAULT, "
+                    "ptroot=0x{:x}, vaddr=0x{:x}",
                     ptroot, vaddr
                 );
                 assert(0);
@@ -361,7 +349,7 @@ int SV39_supervisor::free_one_page(pagetable_t ptroot, vaddr_t vaddr) {
     return -1;
 }
 
-void SV39_supervisor::assert_ptroot(pagetable_t ptroot) {
+void SV32_supervisor::assert_ptroot(pagetable_t ptroot) {
     assert(ptroot % PAGESIZE == 0);
     assert(std::find(m_ptroots.begin(), m_ptroots.end(), ptroot) != m_ptroots.end());
 }

@@ -6,26 +6,26 @@
 #include <utility>
 
 /**
- * @brief SV39基本页表翻译（不修改页表），可作为对硬件MMU的行为模拟
+ * @brief SV32基本页表翻译（不修改页表），可作为对硬件MMU的行为模拟
  */
-class SV39_basic { // basic SV39 MMU (never change pagetable)
+class SV32_basic { // basic SV32 MMU (never change pagetable)
 public:
     using paddr_t = PhysicalMemory::paddr_t;
-    using vaddr_t = uint64_t;
-    using pte_t = uint64_t;
+    using vaddr_t = uint32_t;
+    using pte_t = uint32_t;
     using pagetable_t = paddr_t;
-    // static constexpr uint64_t PMEM_SIZE = (1ull << 56ull);
+    // static constexpr uint64_t PMEM_SIZE = (1ull << 34ull);
     // static constexpr uint64_t VMEM_SIZE = (1ull << 32ull);
     static constexpr size_t PAGESIZE = 4096;
-    static constexpr int LEVELS = 3;
+    static constexpr int LEVELS = 2;
 
-    SV39_basic(
+    SV32_basic(
         std::shared_ptr<PhysicalMemory> pmem, std::shared_ptr<spdlog::logger> logger = nullptr
     )
         : pmem(pmem), logger(logger) {}
 
     /**
-     * @brief 根据SV39页表机制，将虚拟地址转换为物理地址
+     * @brief 根据SV32页表机制，将虚拟地址转换为物理地址
      * @param pagetable_root 根页表的物理地址
      * @param vaddr 要转换的虚拟地址
      * @return 转换后的物理地址(非0)，若转换失败则返回0
@@ -54,22 +54,20 @@ public:
      */
     void *memcpy(pagetable_t pagetable_root, void *dst, vaddr_t src, size_t size) const;
 
-    // SV39标准中定义的虚拟地址、物理地址、页表项的位域
+    // SV32标准中定义的虚拟地址、物理地址、页表项的位域
     struct BITRANGE {
         struct VA {
             static constexpr std::pair<uint8_t, uint8_t> PAGEOFFSET = {11, 00};
-            static constexpr std::pair<uint8_t, uint8_t> VPN0 = {20, 12};
-            static constexpr std::pair<uint8_t, uint8_t> VPN1 = {29, 21};
-            static constexpr std::pair<uint8_t, uint8_t> VPN2 = {38, 30};
-            static constexpr std::pair<uint8_t, uint8_t> VPN[LEVELS] = {VPN0, VPN1, VPN2};
+            static constexpr std::pair<uint8_t, uint8_t> VPN0 = {21, 12};
+            static constexpr std::pair<uint8_t, uint8_t> VPN1 = {31, 22};
+            static constexpr std::pair<uint8_t, uint8_t> VPN[LEVELS] = {VPN0, VPN1};
         };
         struct PA {
             static constexpr std::pair<uint8_t, uint8_t> PAGEOFFSET = {11, 00};
-            static constexpr std::pair<uint8_t, uint8_t> PPNFULL = {55, 12};
+            static constexpr std::pair<uint8_t, uint8_t> PPNFULL = {33, 12};
             static constexpr std::pair<uint8_t, uint8_t> PPN0 = {20, 12};
             static constexpr std::pair<uint8_t, uint8_t> PPN1 = {29, 21};
-            static constexpr std::pair<uint8_t, uint8_t> PPN2 = {55, 30};
-            static constexpr std::pair<uint8_t, uint8_t> PPN[LEVELS] = {PPN0, PPN1, PPN2};
+            static constexpr std::pair<uint8_t, uint8_t> PPN[LEVELS] = {PPN0, PPN1};
         };
         struct PTE {
             static constexpr std::pair<uint8_t, uint8_t> V = {0, 0};
@@ -82,14 +80,10 @@ public:
             static constexpr std::pair<uint8_t, uint8_t> D = {7, 7};
             static constexpr std::pair<uint8_t, uint8_t> XWR = {3, 1};
             static constexpr std::pair<uint8_t, uint8_t> RSW = {9, 8};
-            static constexpr std::pair<uint8_t, uint8_t> PPNFULL = {53, 10};
-            static constexpr std::pair<uint8_t, uint8_t> PPN0 = {18, 10};
-            static constexpr std::pair<uint8_t, uint8_t> PPN1 = {27, 19};
-            static constexpr std::pair<uint8_t, uint8_t> PPN2 = {53, 28};
-            static constexpr std::pair<uint8_t, uint8_t> PPN[LEVELS] = {PPN0, PPN1, PPN2};
-            static constexpr std::pair<uint8_t, uint8_t> RESERVED = {60, 54};
-            static constexpr std::pair<uint8_t, uint8_t> PBMT = {62, 61};
-            static constexpr std::pair<uint8_t, uint8_t> N = {63, 63};
+            static constexpr std::pair<uint8_t, uint8_t> PPNFULL = {31, 10};
+            static constexpr std::pair<uint8_t, uint8_t> PPN0 = {19, 10};
+            static constexpr std::pair<uint8_t, uint8_t> PPN1 = {31, 20};
+            static constexpr std::pair<uint8_t, uint8_t> PPN[LEVELS] = {PPN0, PPN1};
         };
     };
 
