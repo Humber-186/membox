@@ -1,12 +1,14 @@
+#define SPDLOG_ACTIVE_LEVEL SPDLOG_LEVEL_DEBUG
+
 #include "physical_mem.hpp"
 #include <cmath>
 #include <cstdlib>
 #include <ctime>
-#include <fmt/format.h>
 #include <map>
 #include <memory>
 #include <random>
 #include <spdlog/sinks/stdout_color_sinks.h>
+#include <spdlog/spdlog.h>
 #include <vector>
 
 template <typename SV_basic, typename SV_supervisor>
@@ -25,16 +27,23 @@ int test(std::shared_ptr<spdlog::logger> logger) {
     //
 
     pagetable_t vmem1 = sv->create_pagetable();
+    if (vmem1 == 0) {
+        SPDLOG_LOGGER_ERROR(logger, "Basic test: create pagetable failed");
+        return -1;
+    }
     vaddr_t vaddr1 = 0x1000;
     char data[] = "Hello, World!";
-    sv->mmap(vmem1, vaddr1, sizeof(data));
+    vaddr1 = sv->mmap(vmem1, vaddr1, sizeof(data));
     mmu->memcpy(vmem1, vaddr1, data, sizeof(data));
 
     paddr_t paddr1 = mmu->translate(vmem1, vaddr1);
     char data_read_out[128];
     mmu->memcpy(vmem1, data_read_out, vaddr1, sizeof(data));
 
-    logger->info("vaddr1=0x{:x}, paddr1=0x{:x}, data_read_out={}", vaddr1, paddr1, data_read_out);
+    SPDLOG_LOGGER_DEBUG(
+        logger, "Basic test: vaddr1=0x{:x}, paddr1=0x{:x}, data_read_out={}", vaddr1, paddr1,
+        data_read_out
+    );
     sv->munmap(vmem1, vaddr1, sizeof(data));
     sv->destroy_pagetable(vmem1);
 
@@ -59,7 +68,7 @@ int test(std::shared_ptr<spdlog::logger> logger) {
                 size_t dataSize = 1 + std::rand() % 8192;        // 数据大小
                 vaddr = sv->mmap(vmem, vaddr, dataSize);
                 if (vaddr == 0) {
-                    logger->warn("Init WrData mmap refused");
+                    SPDLOG_LOGGER_WARN(logger, "Init WrData mmap refused");
                     continue;
                 }
                 // 生成随机数据
@@ -71,10 +80,12 @@ int test(std::shared_ptr<spdlog::logger> logger) {
                 mmu->memcpy(vmem, vaddr, testData.data(), dataSize);
                 // 更新gold model
                 goldModels[vmem][vaddr] = testData;
-                logger->info("Init WrData VMEM {:x}, vaddr 0x{:x}, size {}", vmem, vaddr, dataSize);
+                SPDLOG_LOGGER_DEBUG(
+                    logger, "Init WrData VMEM {:x}, vaddr 0x{:x}, size {}", vmem, vaddr, dataSize
+                );
             }
         } else {
-            logger->warn("Init CrVmem refused");
+            SPDLOG_LOGGER_WARN(logger, "Init CrVmem refused");
         }
     }
 
@@ -85,9 +96,9 @@ int test(std::shared_ptr<spdlog::logger> logger) {
             auto new_pagetable = sv->create_pagetable();
             if (new_pagetable != 0) {
                 goldModels[new_pagetable] = {};
-                logger->info("CrVmem VMEM @ paddr 0x{:x}", new_pagetable);
+                SPDLOG_LOGGER_DEBUG(logger, "CrVmem VMEM @ paddr 0x{:x}", new_pagetable);
             } else {
-                logger->info("CrVmem refused");
+                SPDLOG_LOGGER_DEBUG(logger, "CrVmem refused");
             }
         } else if (action < 2.0) { // 销毁虚拟地址空间
             if (goldModels.empty()) continue;
@@ -95,10 +106,10 @@ int test(std::shared_ptr<spdlog::logger> logger) {
             std::advance(vmem_it, std::rand() % goldModels.size());
             auto vmem = vmem_it->first;
             if (sv->destroy_pagetable(vmem) == 0) {
-                logger->info("RmVmem VMEM @ paddr 0x{:x}", vmem);
+                SPDLOG_LOGGER_DEBUG(logger, "RmVmem VMEM @ paddr 0x{:x}", vmem);
                 goldModels.erase(vmem);
             } else {
-                logger->error("RmVmem refused");
+                SPDLOG_LOGGER_WARN(logger, "RmVmem refused");
                 assert(0);
             }
         } else if (action < 10.0) { // 申请内存区域&写操作
@@ -110,7 +121,7 @@ int test(std::shared_ptr<spdlog::logger> logger) {
             size_t dataSize = 1 + std::rand() % 8192; // 数据大小
             vaddr = sv->mmap(vmem, vaddr, dataSize);
             if (vaddr == 0) {
-                logger->info("WrData mmap refused");
+                SPDLOG_LOGGER_DEBUG(logger, "WrData mmap refused");
             } else {
                 std::vector<uint8_t> testData(dataSize);
                 for (size_t j = 0; j < dataSize; j++) {
@@ -118,7 +129,7 @@ int test(std::shared_ptr<spdlog::logger> logger) {
                 }
                 mmu->memcpy(vmem, vaddr, testData.data(), dataSize);
                 goldModels[vmem][vaddr] = testData;
-                logger->info("WrData VMEM @ vaddr 0x{:x}, size {}", vaddr, dataSize);
+                SPDLOG_LOGGER_DEBUG(logger, "WrData VMEM @ vaddr 0x{:x}, size {}", vaddr, dataSize);
             }
         } else if (action < 18.0) { // 释放虚拟内存
             if (goldModels.empty()) continue;
@@ -126,17 +137,21 @@ int test(std::shared_ptr<spdlog::logger> logger) {
             std::advance(vmem_it, std::rand() % goldModels.size());
             auto vmem = vmem_it->first;
             if (goldModels[vmem].empty()) {
-                logger->info("RmData VMEM @ paddr 0x{:x} skipped as empty", vmem);
+                SPDLOG_LOGGER_DEBUG(logger, "RmData VMEM @ paddr 0x{:x} skipped as empty", vmem);
             } else {
                 auto vdata_it = goldModels[vmem].begin();
                 std::advance(vdata_it, std::rand() % goldModels[vmem].size());
                 vaddr_t vaddr = vdata_it->first;
                 size_t dataSize = goldModels[vmem][vaddr].size();
                 if (sv->munmap(vmem, vaddr, dataSize) == 0) {
-                    logger->info("RmData VMEM @ vaddr 0x{:x}, size {}", vaddr, dataSize);
+                    SPDLOG_LOGGER_DEBUG(
+                        logger, "RmData VMEM @ vaddr 0x{:x}, size {}", vaddr, dataSize
+                    );
                     goldModels[vmem].erase(vaddr);
                 } else {
-                    logger->error("RmData VMEM @ vaddr 0x{:x}, size {} refused", vaddr, dataSize);
+                    SPDLOG_LOGGER_WARN(
+                        logger, "RmData VMEM @ vaddr 0x{:x}, size {} refused", vaddr, dataSize
+                    );
                     assert(0);
                 }
             }
@@ -146,7 +161,7 @@ int test(std::shared_ptr<spdlog::logger> logger) {
             std::advance(vmem_it, std::rand() % goldModels.size());
             auto vmem = vmem_it->first;
             if (goldModels[vmem].empty()) {
-                logger->info("RdData VMEM @ paddr 0x{:x} skipped as empty", vmem);
+                SPDLOG_LOGGER_DEBUG(logger, "RdData VMEM @ paddr 0x{:x} skipped as empty", vmem);
             } else {
                 auto vdata_it = goldModels[vmem].begin();
                 std::advance(vdata_it, std::rand() % goldModels[vmem].size());
@@ -155,12 +170,14 @@ int test(std::shared_ptr<spdlog::logger> logger) {
                 std::vector<uint8_t> readData(expectedData.size(), 0);
                 mmu->memcpy(vmem, readData.data(), vaddr, expectedData.size());
                 if (readData == expectedData) {
-                    logger->info(
-                        "RdData VMEM @ vaddr 0x{:x}, size {}, PASS", vaddr, expectedData.size()
+                    SPDLOG_LOGGER_DEBUG(
+                        logger, "RdData VMEM @ vaddr 0x{:x}, size {}, PASS", vaddr,
+                        expectedData.size()
                     );
                 } else {
-                    logger->error(
-                        "RdData VMEM @ vaddr 0x{:x}, size {}, FAIL", vaddr, expectedData.size()
+                    SPDLOG_LOGGER_ERROR(
+                        logger, "RdData VMEM @ vaddr 0x{:x}, size {}, FAIL", vaddr,
+                        expectedData.size()
                     );
                     assert(0);
                 }
@@ -174,7 +191,7 @@ int test(std::shared_ptr<spdlog::logger> logger) {
     }
     assert(sv->get_vmem_usage() == 0);
     assert(sv->get_pmem_usage() == 0);
-    logger->info("All test passed");
+    SPDLOG_LOGGER_DEBUG(logger, "All test passed");
     return 0;
 }
 
@@ -189,7 +206,7 @@ int main() {
     int result32 = test<SV32_basic, SV32_supervisor>(logger);
 
     if (result39 == 0 && result32 == 0) {
-        logger->info("All test passed: SV39 and SV32");
+        SPDLOG_LOGGER_INFO(logger, "All test passed: SV39 and SV32");
         return 0;
     } else {
         return -1;

@@ -19,7 +19,7 @@ public:
         : m_size(size), m_logger(logger) {
         m_mem = new (std::align_val_t(4096)) uint8_t[m_size];
     }
-    ~PhysicalMemory() { delete[] m_mem; }
+    ~PhysicalMemory() { operator delete[](m_mem, std::align_val_t(4096)); }
 
     int write(paddr_t addr, const void *src, size_t size) {
         if (addr_check(addr, size)) {
