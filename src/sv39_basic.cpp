@@ -104,13 +104,13 @@ SV39_basic::vaddr_t SV39_basic::memcpy(
         paddr_t cur_paddr = translate(pagetable_root, cur_vaddr);
         if (cur_paddr == 0) {
             logger->error("SV39 memcpy(write): failed to translate vaddr 0x{:x}", cur_vaddr);
-            assert(0);
+            return 0;
         }
         if (pmem->write(cur_paddr, src + offset, chunk)) {
             logger->error(
                 "SV39 memcpy(write): failed to write physical memory at 0x{:x}", cur_paddr
             );
-            assert(0);
+            return 0;
         }
         offset += chunk;
     }
@@ -127,11 +127,11 @@ void *SV39_basic::memcpy(pagetable_t ptroot, void *dst_, vaddr_t src, size_t siz
         paddr_t cur_paddr = translate(ptroot, cur_vaddr);
         if (cur_paddr == 0) {
             logger->error("SV39 memcpy(read): failed to translate vaddr 0x{:x}", cur_vaddr);
-            assert(0);
+            return nullptr;
         }
         if (pmem->read(cur_paddr, dst + offset, chunk)) {
             logger->error("SV39 memcpy(read): failed to read PMEM 0x{:x}", cur_paddr);
-            assert(0);
+            return nullptr;
         }
         offset += chunk;
     }

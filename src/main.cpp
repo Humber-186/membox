@@ -38,8 +38,10 @@ int test(std::shared_ptr<spdlog::logger> logger) {
 
     paddr_t paddr1 = mmu->translate(vmem1, vaddr1);
     char data_read_out[128];
-    mmu->memcpy(vmem1, data_read_out, vaddr1, sizeof(data));
-
+    if(!mmu->memcpy(vmem1, data_read_out, vaddr1, sizeof(data))) {
+        SPDLOG_LOGGER_ERROR(logger, "Basic test: memcpy failed");
+        return -1;
+    }
     SPDLOG_LOGGER_DEBUG(
         logger, "Basic test: vaddr1=0x{:x}, paddr1=0x{:x}, data_read_out={}", vaddr1, paddr1,
         data_read_out
@@ -77,7 +79,10 @@ int test(std::shared_ptr<spdlog::logger> logger) {
                     testData[k] = static_cast<uint8_t>(std::rand());
                 }
                 // 写数据到虚拟内存
-                mmu->memcpy(vmem, vaddr, testData.data(), dataSize);
+                if(!mmu->memcpy(vmem, vaddr, testData.data(), dataSize)) {
+                    SPDLOG_LOGGER_WARN(logger, "Init WrData memcpy failed");
+                    continue;
+                }
                 // 更新gold model
                 goldModels[vmem][vaddr] = testData;
                 SPDLOG_LOGGER_DEBUG(
@@ -127,7 +132,10 @@ int test(std::shared_ptr<spdlog::logger> logger) {
                 for (size_t j = 0; j < dataSize; j++) {
                     testData[j] = static_cast<uint8_t>(std::rand());
                 }
-                mmu->memcpy(vmem, vaddr, testData.data(), dataSize);
+                if(!mmu->memcpy(vmem, vaddr, testData.data(), dataSize)) {
+                    SPDLOG_LOGGER_ERROR(logger, "WrData memcpy failed");
+                    return -1;
+                }
                 goldModels[vmem][vaddr] = testData;
                 SPDLOG_LOGGER_DEBUG(logger, "WrData VMEM @ vaddr 0x{:x}, size {}", vaddr, dataSize);
             }
@@ -168,7 +176,10 @@ int test(std::shared_ptr<spdlog::logger> logger) {
                 auto vaddr = vdata_it->first;
                 const auto &expectedData = vdata_it->second;
                 std::vector<uint8_t> readData(expectedData.size(), 0);
-                mmu->memcpy(vmem, readData.data(), vaddr, expectedData.size());
+                if(!mmu->memcpy(vmem, readData.data(), vaddr, expectedData.size())){
+                    SPDLOG_LOGGER_ERROR(logger, "RdData memcpy failed");
+                    return -1;
+                }
                 if (readData == expectedData) {
                     SPDLOG_LOGGER_DEBUG(
                         logger, "RdData VMEM @ vaddr 0x{:x}, size {}, PASS", vaddr,

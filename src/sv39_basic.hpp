@@ -38,7 +38,7 @@ public:
      * @param dst 目标虚拟地址
      * @param src 主机端源数据
      * @param size 要复制的字节数
-     * @return 目标虚拟地址dst
+     * @return 成功则返回目标虚拟地址dst，失败则返回0（这与C memcpy不同）
      * @note 这并非硬件MMU功能，仅为方便测试
      */
     vaddr_t memcpy(pagetable_t pagetable_root, vaddr_t dst, const void *src, size_t size) const;
@@ -49,7 +49,7 @@ public:
      * @param dst 主机端目的缓冲区
      * @param src 源数据的虚拟地址
      * @param size 要复制的字节数
-     * @return 主机端目标缓冲区的指针dst
+     * @return 成功则返回主机端目标缓冲区的指针dst，失败则返回nullptr（这与C memcpy不同）
      * @note 这并非硬件MMU功能，仅为方便测试
      */
     void *memcpy(pagetable_t pagetable_root, void *dst, vaddr_t src, size_t size) const;
