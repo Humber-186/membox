@@ -1,5 +1,13 @@
 #include "sv32_basic.hpp"
 #include <cassert>
+#include <spdlog/spdlog.h>
+
+SV32_basic::SV32_basic(
+    std::shared_ptr<PhysicalMemory> pmem, std::shared_ptr<spdlog::logger> logger_
+)
+    : pmem(pmem), logger(logger_) {
+    this->logger = logger_ ? logger_ : spdlog::default_logger();
+}
 
 uint64_t SV32_basic::bits_extract(uint64_t data, std::pair<uint8_t, uint8_t> range) {
     assert(range.first >= range.second);

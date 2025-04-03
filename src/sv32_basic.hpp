@@ -21,8 +21,7 @@ public:
 
     SV32_basic(
         std::shared_ptr<PhysicalMemory> pmem, std::shared_ptr<spdlog::logger> logger = nullptr
-    )
-        : pmem(pmem), logger(logger) {}
+    );
 
     /**
      * @brief 根据SV32页表机制，将虚拟地址转换为物理地址
