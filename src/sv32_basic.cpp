@@ -1,11 +1,12 @@
 #include "sv32_basic.hpp"
+#include "physical_mem.hpp"
 #include <cassert>
 #include <spdlog/spdlog.h>
 
 SV32_basic::SV32_basic(
-    std::shared_ptr<PhysicalMemory> pmem, std::shared_ptr<spdlog::logger> logger_
+    std::shared_ptr<PhysicalMemoryInterface> pmem, std::shared_ptr<spdlog::logger> logger_
 )
-    : pmem(pmem), logger(logger_) {
+    : pmem(pmem) {
     this->logger = logger_ ? logger_ : spdlog::default_logger();
 }
 

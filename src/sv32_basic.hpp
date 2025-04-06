@@ -10,7 +10,7 @@
  */
 class SV32_basic { // basic SV32 MMU (never change pagetable)
 public:
-    using paddr_t = PhysicalMemory::paddr_t;
+    using paddr_t = PhysicalMemoryInterface::paddr_t;
     using vaddr_t = uint32_t;
     using pte_t = uint32_t;
     using pagetable_t = paddr_t;
@@ -20,7 +20,8 @@ public:
     static constexpr int LEVELS = 2;
 
     SV32_basic(
-        std::shared_ptr<PhysicalMemory> pmem, std::shared_ptr<spdlog::logger> logger = nullptr
+        std::shared_ptr<PhysicalMemoryInterface> pmem,
+        std::shared_ptr<spdlog::logger> logger = nullptr
     );
 
     /**
@@ -95,6 +96,6 @@ public:
     );
 
 protected:
-    std::shared_ptr<PhysicalMemory> pmem;
+    std::shared_ptr<PhysicalMemoryInterface> pmem;
     std::shared_ptr<spdlog::logger> logger = nullptr;
 };

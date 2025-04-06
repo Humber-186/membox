@@ -1,5 +1,6 @@
 #pragma once
 #include "buddy.hpp"
+#include "physical_mem.hpp"
 #include "sv32_basic.hpp"
 #include <vector>
 
@@ -10,7 +11,7 @@
 class SV32_supervisor : public SV32_basic {
 public:
     SV32_supervisor(
-        std::shared_ptr<PhysicalMemory> pmem, std::shared_ptr<spdlog::logger> logger = nullptr
+        std::shared_ptr<PhysicalMemoryInterface> pmem, std::shared_ptr<spdlog::logger> logger = nullptr
     );
 
     /**

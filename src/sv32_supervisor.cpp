@@ -6,7 +6,7 @@
 #include <vector>
 
 SV32_supervisor::SV32_supervisor(
-    std::shared_ptr<PhysicalMemory> pmem_, std::shared_ptr<spdlog::logger> logger_
+    std::shared_ptr<PhysicalMemoryInterface> pmem_, std::shared_ptr<spdlog::logger> logger_
 )
     : SV32_basic(pmem_, logger_), buddy(pmem_->m_size / PAGESIZE, 11) {}
 

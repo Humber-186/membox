@@ -13,7 +13,8 @@
 
 template <typename SV_basic, typename SV_supervisor>
 int test(std::shared_ptr<spdlog::logger> logger) {
-    auto pmem = std::make_shared<PhysicalMemory>((1ull << 32), logger);
+    std::shared_ptr<PhysicalMemoryInterface> pmem =
+        std::make_shared<PhysicalMemoryBasicSim>((1ull << 32), logger);
     auto sv = std::make_shared<SV_supervisor>(pmem, logger);
     auto mmu = std::make_shared<SV_basic>(pmem, logger);
 
@@ -38,7 +39,7 @@ int test(std::shared_ptr<spdlog::logger> logger) {
 
     paddr_t paddr1 = mmu->translate(vmem1, vaddr1);
     char data_read_out[128];
-    if(!mmu->memcpy(vmem1, data_read_out, vaddr1, sizeof(data))) {
+    if (!mmu->memcpy(vmem1, data_read_out, vaddr1, sizeof(data))) {
         SPDLOG_LOGGER_ERROR(logger, "Basic test: memcpy failed");
         return -1;
     }
@@ -79,7 +80,7 @@ int test(std::shared_ptr<spdlog::logger> logger) {
                     testData[k] = static_cast<uint8_t>(std::rand());
                 }
                 // 写数据到虚拟内存
-                if(!mmu->memcpy(vmem, vaddr, testData.data(), dataSize)) {
+                if (!mmu->memcpy(vmem, vaddr, testData.data(), dataSize)) {
                     SPDLOG_LOGGER_WARN(logger, "Init WrData memcpy failed");
                     continue;
                 }
@@ -94,7 +95,7 @@ int test(std::shared_ptr<spdlog::logger> logger) {
         }
     }
 
-    const int testCount = 50000;
+    const int testCount = 100000;
     for (int i = 0; i < testCount; i++) {
         double action = randf64(re);
         if (action < 1.0) { // 新建虚拟地址空间
@@ -132,7 +133,7 @@ int test(std::shared_ptr<spdlog::logger> logger) {
                 for (size_t j = 0; j < dataSize; j++) {
                     testData[j] = static_cast<uint8_t>(std::rand());
                 }
-                if(!mmu->memcpy(vmem, vaddr, testData.data(), dataSize)) {
+                if (!mmu->memcpy(vmem, vaddr, testData.data(), dataSize)) {
                     SPDLOG_LOGGER_ERROR(logger, "WrData memcpy failed");
                     return -1;
                 }
@@ -176,7 +177,7 @@ int test(std::shared_ptr<spdlog::logger> logger) {
                 auto vaddr = vdata_it->first;
                 const auto &expectedData = vdata_it->second;
                 std::vector<uint8_t> readData(expectedData.size(), 0);
-                if(!mmu->memcpy(vmem, readData.data(), vaddr, expectedData.size())){
+                if (!mmu->memcpy(vmem, readData.data(), vaddr, expectedData.size())) {
                     SPDLOG_LOGGER_ERROR(logger, "RdData memcpy failed");
                     return -1;
                 }

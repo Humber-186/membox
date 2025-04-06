@@ -1,6 +1,7 @@
 #pragma once
 #include <cassert>
 #include <cstdint>
+#include <cstddef>
 #include <list>
 #include <vector>
 

@@ -6,7 +6,7 @@
 #include <vector>
 
 SV39_supervisor::SV39_supervisor(
-    std::shared_ptr<PhysicalMemory> pmem_, std::shared_ptr<spdlog::logger> logger_
+    std::shared_ptr<PhysicalMemoryInterface> pmem_, std::shared_ptr<spdlog::logger> logger_
 )
     : SV39_basic(pmem_, logger_), buddy(pmem_->m_size / PAGESIZE, 11) {}
 
@@ -84,7 +84,9 @@ int SV39_supervisor::destroy_pagetable(pagetable_t ptroot) {
     return result;
 }
 
-SV39_supervisor::vaddr_t SV39_supervisor::mmap(const pagetable_t ptroot, vaddr_t vaddr, const size_t size) {
+SV39_supervisor::vaddr_t SV39_supervisor::mmap(
+    const pagetable_t ptroot, vaddr_t vaddr, const size_t size
+) {
     if (size == 0) {
         return 0;
     }

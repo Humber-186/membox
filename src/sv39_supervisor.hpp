@@ -1,5 +1,6 @@
 #pragma once
 #include "buddy.hpp"
+#include "physical_mem.hpp"
 #include "sv39_basic.hpp"
 #include <vector>
 
@@ -11,7 +12,8 @@ class SV39_supervisor : public SV39_basic {
 public:
     using page_idx_t = BuddyAllocator<PAGESIZE>::elem_idx_t;
     SV39_supervisor(
-        std::shared_ptr<PhysicalMemory> pmem, std::shared_ptr<spdlog::logger> logger = nullptr
+        std::shared_ptr<PhysicalMemoryInterface> pmem,
+        std::shared_ptr<spdlog::logger> logger = nullptr
     );
 
     /**
