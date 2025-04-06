@@ -18,7 +18,8 @@ BuddyAllocator<elem_size>::BuddyAllocator(elem_idx_t total_pages, uint8_t max_or
     // 提前将0号页分配出并不释放，则之后分配操作返回0表示失败
     elem_idx_t alloc0 = allocate(0);
     assert(alloc0 == 0);
-    m_elem_usage -= 1; // 0号页不计入使用量
+    static_cast<void>(alloc0); // suppress unused variable warning
+    m_elem_usage -= 1;         // 0号页不计入使用量
 }
 
 template <size_t elem_size>

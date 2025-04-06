@@ -207,10 +207,8 @@ int test(std::shared_ptr<spdlog::logger> logger) {
     return 0;
 }
 
-#include "sv32_basic.hpp"
-#include "sv32_supervisor.hpp"
-#include "sv39_basic.hpp"
-#include "sv39_supervisor.hpp"
+#include "sv32.hpp"
+#include "sv39.hpp"
 
 int main() {
     auto logger = spdlog::stdout_color_mt("main");

@@ -1,19 +1,34 @@
 #pragma once
+
 #include "buddy.hpp"
 #include "physical_mem.hpp"
-#include "sv39_basic.hpp"
+#include "sv_basic.hpp"
 #include <vector>
 
 /**
- * @brief SV39 supervisor模式下的页表管理器（软件）
+ * @brief SVxx supervisor模式下的页表管理器（软件）
  * @note 利用buddy allocator管理物理内存，实现页表管理与类linux的mmap和munmap函数
  */
-class SV39_supervisor : public SV39_basic {
+
+template <typename Trait>
+class SV_supervisor : public SV_basic<Trait> {
 public:
-    using page_idx_t = BuddyAllocator<PAGESIZE>::elem_idx_t;
-    SV39_supervisor(
-        std::shared_ptr<PhysicalMemoryInterface> pmem,
-        std::shared_ptr<spdlog::logger> logger = nullptr
+    using typename SV_basic<Trait>::paddr_t;
+    using typename SV_basic<Trait>::vaddr_t;
+    using typename SV_basic<Trait>::pte_t;
+    using typename SV_basic<Trait>::pagetable_t;
+    using typename SV_basic<Trait>::BITRANGE;
+    static constexpr int LEVELS = SV_basic<Trait>::LEVELS;
+    static constexpr size_t PAGESIZE = SV_basic<Trait>::PAGESIZE;
+
+    using SV_basic<Trait>::logger;
+    using SV_basic<Trait>::pmem;
+    using SV_basic<Trait>::translate;
+    using SV_basic<Trait>::bits_set;
+    using SV_basic<Trait>::bits_extract;
+
+    SV_supervisor(
+        std::shared_ptr<PhysicalMemoryInterface> pmem, std::shared_ptr<spdlog::logger> logger = nullptr
     );
 
     /**
@@ -69,9 +84,6 @@ private:
     // For debug assert
     std::vector<pagetable_t> m_ptroots; // all root-pagetables created
     void assert_ptroot(pagetable_t ptroot);
-
-    // std::map<pagetable_t, std::map<vaddr_t, size_t>> m_goldmodel;
-    // std::vector<paddr_t> m_ppages;
 
     // 新分配一个虚拟页，将其加入页表中，需要时会分配页表页
     int alloc_one_page(pagetable_t pagetable_root, vaddr_t vaddr);
