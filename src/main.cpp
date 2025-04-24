@@ -58,7 +58,6 @@ int test(std::shared_ptr<spdlog::logger> logger) {
     std::uniform_real_distribution<double> randf64(0, 100);
     std::default_random_engine re;
 
-    // 删除原有的pagetables和goldModels定义，改为：
     std::map<pagetable_t, std::map<vaddr_t, std::vector<uint8_t>>> goldModels;
 
     // 初始化一些虚拟地址空间，每个空间中写入5段随机数据

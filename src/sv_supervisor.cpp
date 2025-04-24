@@ -23,7 +23,9 @@ SV_supervisor<Trait>::pagetable_t SV_supervisor<Trait>::create_pagetable() {
     }));
     m_ptroots.push_back(ptroot);
     if (pmem->fill(ptroot, 0, PAGESIZE)) {
-        logger->error("SV failed to reset newly allocated pagetable to 0 at PMEM 0x{:x}", ptroot);
+        SPDLOG_LOGGER_ERROR(
+            logger, "SV failed to reset newly allocated pagetable to 0 at PMEM 0x{:x}", ptroot
+        );
         assert(0);
         buddy.free(ptroot, 0);
         return 0;
@@ -40,7 +42,7 @@ int SV_supervisor<Trait>::destroy_pagetable_one_level(const pagetable_t ptaddr, 
     for (paddr_t pte_addr = ptaddr; pte_addr < ptaddr + PAGESIZE; pte_addr += sizeof(pte_t)) {
         pte_t pte;
         if (pmem->read(pte_addr, &pte, sizeof(pte_t))) {
-            logger->error("SV failed to get PTE from PMEM 0x{:x}", pte_addr);
+            SPDLOG_LOGGER_ERROR(logger, "SV failed to get PTE from PMEM 0x{:x}", pte_addr);
             assert(0);
             return -1;
         }
@@ -49,7 +51,9 @@ int SV_supervisor<Trait>::destroy_pagetable_one_level(const pagetable_t ptaddr, 
         }
         if (bits_extract(pte, PTE::XWR)) { // leaf PTE
             if (level != 0) {
-                logger->error("SV internal page-free error: large page not supported yet");
+                SPDLOG_LOGGER_ERROR(
+                    logger, "SV internal page-free error: large page not supported yet"
+                );
                 assert(0);
                 return -1;
             }
@@ -59,9 +63,10 @@ int SV_supervisor<Trait>::destroy_pagetable_one_level(const pagetable_t ptaddr, 
             m_vpage_usage--;
         } else { // pointer to next level pagetable
             if (level == 0) {
-                logger->error(
-                    "SV PTE error: point to non-exist next level pagetable "
-                    "PAGE-FAULT, ptroot=0x{:x}, vaddr=0x{:x}",
+                SPDLOG_LOGGER_ERROR(
+                    logger,
+                    "SV PTE error: point to non-exist next level pagetable PAGE-FAULT, "
+                    "ptroot=0x{:x}, vaddr=0x{:x}",
                     ptaddr, 0
                 );
                 assert(0);
@@ -78,8 +83,7 @@ int SV_supervisor<Trait>::destroy_pagetable_one_level(const pagetable_t ptaddr, 
     return 0;
 }
 
-template <typename Trait>
-int SV_supervisor<Trait>::destroy_pagetable(pagetable_t ptroot) {
+template <typename Trait> int SV_supervisor<Trait>::destroy_pagetable(pagetable_t ptroot) {
     assert_ptroot(ptroot);
     int result = destroy_pagetable_one_level(ptroot, LEVELS - 1);
     if (result == 0) {
@@ -167,9 +171,8 @@ int SV_supervisor<Trait>::alloc_one_page(const pagetable_t ptroot, const vaddr_t
     for (level = LEVELS - 1; level >= 0; level--) {
         pte_addr = ptaddr + bits_extract(vaddr, VA::VPN[level]) * sizeof(pte_t);
         if (pmem->read(pte_addr, &pte, sizeof(pte_t))) {
-            logger->error(
-                "SV failed to get PTE from PMEM at 0x{:x}, "
-                "ptroot=0x{:x}, vaddr=0x{:x}",
+            SPDLOG_LOGGER_ERROR(
+                logger, "SV failed to get PTE from PMEM at 0x{:x}, ptroot=0x{:x}, vaddr=0x{:x}",
                 pte_addr, ptroot, vaddr
             );
             assert(0); // it's a incorrect pagetable, please check where destroy it
@@ -179,8 +182,9 @@ int SV_supervisor<Trait>::alloc_one_page(const pagetable_t ptroot, const vaddr_t
             break;
         }
         if (bits_extract(pte, PTE::R) == 0 && bits_extract(pte, PTE::W) == 1) {
-            logger->error(
-                "SV PTE error: R=0 && W=1 PAGE-FAULT, ptroot=0x{:x}, vaddr=0x{:x}", ptroot, vaddr
+            SPDLOG_LOGGER_ERROR(
+                logger, "SV PTE error: R=0 && W=1 PAGE-FAULT, ptroot=0x{:x}, vaddr=0x{:x}", ptroot,
+                vaddr
             );
             assert(0); // todo: how to deal with pagefault exception?
             return 0;
@@ -188,17 +192,19 @@ int SV_supervisor<Trait>::alloc_one_page(const pagetable_t ptroot, const vaddr_t
         // Already known pte.v == 1
         if (bits_extract(pte, PTE::R) || bits_extract(pte, PTE::X)) {
             // Leaf PTE found
-            logger->error(
+            SPDLOG_LOGGER_ERROR(
+                logger,
                 "SV internal alloc error: alloc at existing vaddr 0x{:x}, "
-                "this problem should be already solved by caller(mmap)",
+                "this problem should have already been resolved by caller(mmap)",
                 vaddr
             );
             assert(0);
         } else {              // Next level PTE found
             if (level == 0) { // already reach final level, next level does not exist
-                logger->error(
-                    "SV PTE error: point to non-exist next level pagetable "
-                    "PAGE-FAULT, ptroot=0x{:x}, vaddr=0x{:x}",
+                SPDLOG_LOGGER_ERROR(
+                    logger,
+                    "SV PTE error: point to non-exist next level pagetable PAGE-FAULT, "
+                    "ptroot=0x{:x}, vaddr=0x{:x}",
                     ptroot, vaddr
                 );
                 assert(0);
@@ -242,7 +248,8 @@ int SV_supervisor<Trait>::alloc_one_page(const pagetable_t ptroot, const vaddr_t
     // success to alloc one page, commit all changes now
     for (auto &page : allocated_pages) {
         if (pmem->fill(page, 0, PAGESIZE)) {
-            logger->error(
+            SPDLOG_LOGGER_ERROR(
+                logger,
                 "SV failed to reset newly allocated pagetable to 0 at PMEM 0x{:x}, "
                 "ptroot=0x{:x}, vaddr=0x{:x}",
                 page, ptroot, vaddr
@@ -253,9 +260,8 @@ int SV_supervisor<Trait>::alloc_one_page(const pagetable_t ptroot, const vaddr_t
     }
     for (auto &p : commit_ptes) {
         if (pmem->write(p.first, &p.second, sizeof(pte_t))) {
-            logger->error(
-                "SV failed to write PTE to PMEM at 0x{:x}, "
-                "ptroot=0x{:x}, vaddr=0x{:x}",
+            SPDLOG_LOGGER_ERROR(
+                logger, "SV failed to write PTE to PMEM at 0x{:x}, ptroot=0x{:x}, vaddr=0x{:x}",
                 p.first, ptroot, vaddr
             );
             assert(0);
@@ -288,26 +294,27 @@ int SV_supervisor<Trait>::free_one_page(pagetable_t ptroot, vaddr_t vaddr) {
         paddr_t pte_addr = ptaddr + bits_extract(vaddr, VA::VPN[level]) * sizeof(pte_t);
         pte_t pte;
         if (pmem->read(pte_addr, &pte, sizeof(pte_t))) {
-            logger->error(
-                "SV failed to get PTE from PMEM at 0x{:x}, "
-                "ptroot=0x{:x}, vaddr=0x{:x}",
+            SPDLOG_LOGGER_ERROR(
+                logger, "SV failed to get PTE from PMEM at 0x{:x}, ptroot=0x{:x}, vaddr=0x{:x}",
                 pte_addr, ptroot, vaddr
             );
             assert(0);
             return -1;
         }
         if (bits_extract(pte, PTE::V) == 0) {
-            logger->error(
-                "SV PTE.V==0 page-missing PAGE-FAULT during internal page-free, PTE at "
-                "PMEM 0x{:x}, ptroot=0x{:x}, vaddr=0x{:x}",
+            SPDLOG_LOGGER_ERROR(
+                logger,
+                "SV PTE.V==0 PAGE-FAULT during internal page-free, PTE at PMEM 0x{:x}, "
+                "ptroot=0x{:x}, vaddr=0x{:x}",
                 pte_addr, ptroot, vaddr
             );
             assert(0);
             return -1;
         }
         if (bits_extract(pte, PTE::R) == 0 && bits_extract(pte, PTE::W) == 1) {
-            logger->error(
-                "SV PTE error: R=0 && W=1 PAGE-FAULT, ptroot=0x{:x}, vaddr=0x{:x}", ptroot, vaddr
+            SPDLOG_LOGGER_ERROR(
+                logger, "SV PTE error: R=0 && W=1 PAGE-FAULT, ptroot=0x{:x}, vaddr=0x{:x}", ptroot,
+                vaddr
             );
             assert(0);
             return -1;
@@ -316,7 +323,8 @@ int SV_supervisor<Trait>::free_one_page(pagetable_t ptroot, vaddr_t vaddr) {
         if (bits_extract(pte, PTE::R) || bits_extract(pte, PTE::X)) {
             // Leaf PTE found
             if (level != 0) { // for super-page (level != 0)
-                logger->error(
+                SPDLOG_LOGGER_ERROR(
+                    logger,
                     "SV page free do not support superpage yet, ptroot=0x{:x}, vaddr=0x{:x}",
                     ptroot, vaddr
                 );
@@ -326,9 +334,8 @@ int SV_supervisor<Trait>::free_one_page(pagetable_t ptroot, vaddr_t vaddr) {
             buddy.free(paddr, 0);
             pte = 0;
             if (pmem->write(pte_addr, &pte, sizeof(pte_t))) {
-                logger->error(
-                    "SV failed to write PTE to PMEM at 0x{:x}, "
-                    "ptroot=0x{:x}, vaddr=0x{:x}",
+                SPDLOG_LOGGER_ERROR(
+                    logger, "SV failed to write PTE to PMEM at 0x{:x}, ptroot=0x{:x}, vaddr=0x{:x}",
                     pte_addr, ptroot, vaddr
                 );
                 assert(0);
@@ -341,7 +348,8 @@ int SV_supervisor<Trait>::free_one_page(pagetable_t ptroot, vaddr_t vaddr) {
             return 0;
         } else { // Next level PTE found
             if (level == 0) {
-                logger->error(
+                SPDLOG_LOGGER_ERROR(
+                    logger,
                     "SV PTE error: point to non-exist next level pagetable PAGE-FAULT, "
                     "ptroot=0x{:x}, vaddr=0x{:x}",
                     ptroot, vaddr
@@ -357,8 +365,7 @@ int SV_supervisor<Trait>::free_one_page(pagetable_t ptroot, vaddr_t vaddr) {
     return -1;
 }
 
-template <typename Trait>
-void SV_supervisor<Trait>::assert_ptroot(pagetable_t ptroot) {
+template <typename Trait> void SV_supervisor<Trait>::assert_ptroot(pagetable_t ptroot) {
     assert(ptroot % PAGESIZE == 0);
     assert(std::find(m_ptroots.begin(), m_ptroots.end(), ptroot) != m_ptroots.end());
 }

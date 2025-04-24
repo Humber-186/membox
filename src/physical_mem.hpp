@@ -6,7 +6,7 @@
 #include <cstring>
 #include <memory>
 #include <new>
-#include <spdlog/logger.h>
+#include <spdlog/spdlog.h>
 
 class PhysicalMemoryInterface {
 public:
@@ -30,7 +30,7 @@ public:
     PhysicalMemoryBasicSim(
         uint64_t size = (1ull << 30), std::shared_ptr<spdlog::logger> logger = nullptr
     )
-        : PhysicalMemoryInterface(size), m_logger(logger) {
+        : PhysicalMemoryInterface(size), m_logger(logger ? logger : spdlog::default_logger()) {
         m_mem = new (std::align_val_t(PAGESIZE)) uint8_t[m_size];
     }
     ~PhysicalMemoryBasicSim() { operator delete[](m_mem, std::align_val_t(PAGESIZE)); }
@@ -86,9 +86,9 @@ private:
     int addr_check(paddr_t addr, size_t size = 0) {
         if (addr < m_addr_floor || addr + size > m_size) {
             if (size == 0)
-                m_logger->error("PMEM addr out of range: 0x{:x}", addr);
+                SPDLOG_LOGGER_ERROR(m_logger, "PMEM addr out of range: 0x{:x}", addr);
             else
-                m_logger->error("PMEM addr out of range: 0x{:x} + {}", addr, size);
+                SPDLOG_LOGGER_ERROR(m_logger, "PMEM addr out of range: 0x{:x} +: {}", addr, size);
             return -1;
         }
         return 0;

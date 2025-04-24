@@ -47,9 +47,9 @@ SV_basic<Trait>::paddr_t SV_basic<Trait>::translate(const paddr_t ptroot, const 
         paddr_t pte_addr = ptaddr + bits_extract(vaddr, VA::VPN[level]) * sizeof(pte_t);
         pte_t pte;
         if (pmem->read(pte_addr, &pte, sizeof(pte_t))) {
-            logger->error(
-                "SV failed to get PTE from PMEM 0x{:x}, ptroot=0x{:x}, vaddr=0x{:x}", pte_addr,
-                ptroot, vaddr
+            SPDLOG_LOGGER_ERROR(
+                logger, "SV failed to get PTE from PMEM 0x{:x}, ptroot=0x{:x}, vaddr=0x{:x}",
+                pte_addr, ptroot, vaddr
             );
             assert(0);
             return 0;
@@ -60,8 +60,9 @@ SV_basic<Trait>::paddr_t SV_basic<Trait>::translate(const paddr_t ptroot, const 
             return 0;
         }
         if (bits_extract(pte, PTE::R) == 0 && bits_extract(pte, PTE::W) == 1) {
-            logger->error(
-                "SV PTE error: R=0 && W=1 PAGE-FAULT, ptroot=0x{:x}, vaddr=0x{:x}", ptroot, vaddr
+            SPDLOG_LOGGER_ERROR(
+                logger, "SV PTE error: R=0 && W=1 PAGE-FAULT, ptroot=0x{:x}, vaddr=0x{:x}", ptroot,
+                vaddr
             );
             assert(0); // todo: how to deal with pagefault exception?
             return 0;
@@ -75,7 +76,8 @@ SV_basic<Trait>::paddr_t SV_basic<Trait>::translate(const paddr_t ptroot, const 
             for (int i = 0; i < level; i++) { // for super-page (level != 0)
                 // lower-level PTE.PPN should be 0
                 if (bits_extract(pte, PTE::PPN[level]) != 0ull) {
-                    logger->error(
+                    SPDLOG_LOGGER_ERROR(
+                        logger,
                         "SV PTE error: superpage PTE.PPN[{}]!=0 PAGE-FAULT, "
                         "ptroot=0x{:x}, vaddr=0x{:x}",
                         level, ptroot, vaddr
@@ -91,7 +93,8 @@ SV_basic<Trait>::paddr_t SV_basic<Trait>::translate(const paddr_t ptroot, const 
             return paddr;
         } else {              // Next level PTE found
             if (level == 0) { // already reach final level, next level does not exist
-                logger->error(
+                SPDLOG_LOGGER_ERROR(
+                    logger,
                     "SV PTE error: point to non-exist next level pagetable PAGE-FAULT, "
                     "ptroot=0x{:x}, vaddr=0x{:x}",
                     ptroot, vaddr
@@ -120,11 +123,15 @@ SV_basic<Trait>::vaddr_t SV_basic<Trait>::memcpy(
         size_t chunk = std::min(size - offset, static_cast<size_t>(PAGESIZE - page_offset));
         paddr_t cur_paddr = translate(pagetable_root, cur_vaddr);
         if (cur_paddr == 0) {
-            logger->error("SV memcpy(write): failed to translate vaddr 0x{:x}", cur_vaddr);
+            SPDLOG_LOGGER_ERROR(
+                logger, "SV memcpy(write): failed to translate vaddr 0x{:x}", cur_vaddr
+            );
             return 0;
         }
         if (pmem->write(cur_paddr, src + offset, chunk)) {
-            logger->error("SV memcpy(write): failed to write physical memory at 0x{:x}", cur_paddr);
+            SPDLOG_LOGGER_ERROR(
+                logger, "SV memcpy(write): failed to write physical memory at 0x{:x}", cur_paddr
+            );
             return 0;
         }
         offset += chunk;
@@ -142,11 +149,13 @@ void *SV_basic<Trait>::memcpy(pagetable_t ptroot, void *dst_, vaddr_t src, size_
         size_t chunk = std::min(size - offset, static_cast<size_t>(PAGESIZE - page_offset));
         paddr_t cur_paddr = translate(ptroot, cur_vaddr);
         if (cur_paddr == 0) {
-            logger->error("SV memcpy(read): failed to translate vaddr 0x{:x}", cur_vaddr);
+            SPDLOG_LOGGER_ERROR(
+                logger, "SV memcpy(read): failed to translate vaddr 0x{:x}", cur_vaddr
+            );
             return nullptr;
         }
         if (pmem->read(cur_paddr, dst + offset, chunk)) {
-            logger->error("SV memcpy(read): failed to read PMEM 0x{:x}", cur_paddr);
+            SPDLOG_LOGGER_ERROR(logger, "SV memcpy(read): failed to read PMEM 0x{:x}", cur_paddr);
             return nullptr;
         }
         offset += chunk;
