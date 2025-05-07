@@ -23,7 +23,7 @@ BuddyAllocator<elem_size>::BuddyAllocator(elem_idx_t total_pages, uint8_t max_or
 }
 
 template <size_t elem_size>
-BuddyAllocator<elem_size>::elem_idx_t BuddyAllocator<elem_size>::allocate_idx(const uint8_t order) {
+typename BuddyAllocator<elem_size>::elem_idx_t BuddyAllocator<elem_size>::allocate_idx(const uint8_t order) {
     if (order > max_order) return 0;
 
     uint8_t current_order = order;

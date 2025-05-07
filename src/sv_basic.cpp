@@ -36,12 +36,12 @@ uint64_t SV_basic<Trait>::bits_set(
 }
 
 template <typename Trait>
-SV_basic<Trait>::paddr_t SV_basic<Trait>::translate(const paddr_t ptroot, const vaddr_t vaddr)
+typename SV_basic<Trait>::paddr_t SV_basic<Trait>::translate(const paddr_t ptroot, const vaddr_t vaddr)
     const {
     assert(ptroot % PAGESIZE == 0);
-    using PTE = BITRANGE::PTE;
-    using VA = BITRANGE::VA;
-    using PA = BITRANGE::PA;
+    using PTE = typename BITRANGE::PTE;
+    using VA = typename BITRANGE::VA;
+    using PA = typename BITRANGE::PA;
     paddr_t ptaddr = ptroot; // the selected-level pagetable base addr
     for (int level = LEVELS - 1; level >= 0; level--) {
         paddr_t pte_addr = ptaddr + bits_extract(vaddr, VA::VPN[level]) * sizeof(pte_t);
@@ -112,7 +112,7 @@ SV_basic<Trait>::paddr_t SV_basic<Trait>::translate(const paddr_t ptroot, const 
 }
 
 template <typename Trait>
-SV_basic<Trait>::vaddr_t SV_basic<Trait>::memcpy(
+typename SV_basic<Trait>::vaddr_t SV_basic<Trait>::memcpy(
     pagetable_t pagetable_root, vaddr_t dst, const void *src_, size_t size
 ) const {
     const uint8_t *src = static_cast<const uint8_t *>(src_);

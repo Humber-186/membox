@@ -12,7 +12,7 @@ SV_supervisor<Trait>::SV_supervisor(
     : SV_basic<Trait>(pmem_, logger_), buddy(pmem_->m_size / PAGESIZE, 11) {}
 
 template <typename Trait>
-SV_supervisor<Trait>::pagetable_t SV_supervisor<Trait>::create_pagetable() {
+typename SV_supervisor<Trait>::pagetable_t SV_supervisor<Trait>::create_pagetable() {
     paddr_t ptroot = buddy.allocate(0);
     if (ptroot == 0) {
         return 0;
@@ -36,9 +36,9 @@ SV_supervisor<Trait>::pagetable_t SV_supervisor<Trait>::create_pagetable() {
 template <typename Trait>
 int SV_supervisor<Trait>::destroy_pagetable_one_level(const pagetable_t ptaddr, int level) {
     assert(ptaddr % PAGESIZE == 0);
-    using PTE = BITRANGE::PTE;
-    // using VA = BITRANGE::VA;
-    using PA = BITRANGE::PA;
+    using PTE = typename BITRANGE::PTE;
+    // using VA = typename BITRANGE::VA;
+    using PA = typename BITRANGE::PA;
     for (paddr_t pte_addr = ptaddr; pte_addr < ptaddr + PAGESIZE; pte_addr += sizeof(pte_t)) {
         pte_t pte;
         if (pmem->read(pte_addr, &pte, sizeof(pte_t))) {
@@ -156,9 +156,9 @@ int SV_supervisor<Trait>::alloc_one_page(const pagetable_t ptroot, const vaddr_t
     assert_ptroot(ptroot);
     assert(vaddr % PAGESIZE == 0);
     assert(!translate(ptroot, vaddr));
-    using PTE = BITRANGE::PTE;
-    using VA = BITRANGE::VA;
-    using PA = BITRANGE::PA;
+    using PTE = typename BITRANGE::PTE;
+    using VA = typename BITRANGE::VA;
+    using PA = typename BITRANGE::PA;
     paddr_t paddr = 0;
 
     std::vector<paddr_t> allocated_pages;
@@ -283,9 +283,9 @@ int SV_supervisor<Trait>::free_one_page(pagetable_t ptroot, vaddr_t vaddr) {
     assert_ptroot(ptroot);
     assert(vaddr % PAGESIZE == 0);
     assert(translate(ptroot, vaddr));
-    using PTE = BITRANGE::PTE;
-    using VA = BITRANGE::VA;
-    using PA = BITRANGE::PA;
+    using PTE = typename BITRANGE::PTE;
+    using VA = typename BITRANGE::VA;
+    using PA = typename BITRANGE::PA;
 
     std::vector<paddr_t> pagetables;
     std::vector<paddr_t> pte_addrs;
@@ -368,6 +368,7 @@ int SV_supervisor<Trait>::free_one_page(pagetable_t ptroot, vaddr_t vaddr) {
 template <typename Trait> void SV_supervisor<Trait>::assert_ptroot(pagetable_t ptroot) {
     assert(ptroot % PAGESIZE == 0);
     assert(std::find(m_ptroots.begin(), m_ptroots.end(), ptroot) != m_ptroots.end());
+    static_cast<void>(ptroot); // suppress unused variable warning
 }
 
 #include "sv32.hpp"
