@@ -1,4 +1,6 @@
+#ifndef SPDLOG_ACTIVE_LEVEL
 #define SPDLOG_ACTIVE_LEVEL SPDLOG_LEVEL_DEBUG
+#endif
 
 #include "physical_mem.hpp"
 #include <cmath>

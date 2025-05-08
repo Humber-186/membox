@@ -36,8 +36,9 @@ uint64_t SV_basic<Trait>::bits_set(
 }
 
 template <typename Trait>
-typename SV_basic<Trait>::paddr_t SV_basic<Trait>::translate(const paddr_t ptroot, const vaddr_t vaddr)
-    const {
+typename SV_basic<Trait>::paddr_t SV_basic<Trait>::translate(
+    const paddr_t ptroot, const vaddr_t vaddr
+) const {
     assert(ptroot % PAGESIZE == 0);
     using PTE = typename BITRANGE::PTE;
     using VA = typename BITRANGE::VA;
@@ -124,7 +125,8 @@ typename SV_basic<Trait>::vaddr_t SV_basic<Trait>::memcpy(
         paddr_t cur_paddr = translate(pagetable_root, cur_vaddr);
         if (cur_paddr == 0) {
             SPDLOG_LOGGER_ERROR(
-                logger, "SV memcpy(write): failed to translate vaddr 0x{:x}", cur_vaddr
+                logger, "SV memcpy(write): failed to translate vaddr=0x{:x}, ptroot=0x{:x}",
+                cur_vaddr, pagetable_root
             );
             return 0;
         }
@@ -150,7 +152,8 @@ void *SV_basic<Trait>::memcpy(pagetable_t ptroot, void *dst_, vaddr_t src, size_
         paddr_t cur_paddr = translate(ptroot, cur_vaddr);
         if (cur_paddr == 0) {
             SPDLOG_LOGGER_ERROR(
-                logger, "SV memcpy(read): failed to translate vaddr 0x{:x}", cur_vaddr
+                logger, "SV memcpy(read): failed to translate vaddr=0x{:x}, ptroot=0x{:x}",
+                cur_vaddr, ptroot
             );
             return nullptr;
         }
