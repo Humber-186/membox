@@ -50,6 +50,9 @@ int test(std::shared_ptr<spdlog::logger> logger) {
         data_read_out
     );
     sv->munmap(vmem1, vaddr1, sizeof(data));
+    vaddr_t vaddr1_alloc_again = sv->mmap(vmem1, vaddr1, sizeof(data));
+    assert(vaddr1_alloc_again == vaddr1);
+    sv->munmap(vmem1, vaddr1_alloc_again, sizeof(data));
     sv->destroy_pagetable(vmem1);
 
     //

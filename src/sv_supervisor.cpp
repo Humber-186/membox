@@ -15,6 +15,7 @@ template <typename Trait>
 typename SV_supervisor<Trait>::pagetable_t SV_supervisor<Trait>::create_pagetable() {
     paddr_t ptroot = buddy.allocate(0);
     if (ptroot == 0) {
+        SPDLOG_LOGGER_ERROR(logger, "SV failed to allocate memory for new pagetable root");
         return 0;
     }
     assert(ptroot % PAGESIZE == 0);
@@ -97,6 +98,7 @@ typename SV_supervisor<Trait>::vaddr_t SV_supervisor<Trait>::mmap(
     const pagetable_t ptroot, vaddr_t vaddr, const size_t size
 ) {
     if (size == 0) {
+        SPDLOG_LOGGER_WARN(logger, "SV mmap called with size 0");
         return 0;
     }
     assert_ptroot(ptroot);
@@ -117,6 +119,10 @@ typename SV_supervisor<Trait>::vaddr_t SV_supervisor<Trait>::mmap(
             break;
         }
         if (i == 4095) {
+            SPDLOG_LOGGER_WARN(
+                logger, "SV mmap failed to find idle vaddr=0x{:x} + 0x{:x}, ptroot=0x{:x}", vaddr,
+                size, ptroot
+            );
             return 0;
         }
         vaddr += PAGESIZE;
@@ -124,6 +130,10 @@ typename SV_supervisor<Trait>::vaddr_t SV_supervisor<Trait>::mmap(
     // idle vaddr found
     for (size_t pgcnt = 0; pgcnt < num_page; pgcnt++) {
         if (alloc_one_page(ptroot, vaddr + pgcnt * PAGESIZE)) {
+            SPDLOG_LOGGER_DEBUG(
+                logger, "SV mmap failed to allocate page at vaddr=0x{:x}, rolling back",
+                vaddr + pgcnt * PAGESIZE
+            );
             // failed to alloc page. rollback needed: free all previous allocated pages
             for (size_t pgcnt_free = 0; pgcnt_free < pgcnt; pgcnt_free++) {
                 assert(free_one_page(ptroot, vaddr + pgcnt_free * PAGESIZE) == 0);
@@ -139,12 +149,17 @@ int SV_supervisor<Trait>::munmap(const pagetable_t ptroot, vaddr_t vaddr, size_t
     assert_ptroot(ptroot);
     assert(vaddr % PAGESIZE == 0);
     if (size == 0) {
+        SPDLOG_LOGGER_WARN(logger, "SV munmap called with size 0");
         return -1;
     }
     size_t num_page = (size + PAGESIZE - 1) / PAGESIZE;
 
     for (size_t pgcnt = 0; pgcnt < num_page; pgcnt++) {
         if (free_one_page(ptroot, vaddr + pgcnt * PAGESIZE)) {
+            SPDLOG_LOGGER_ERROR(
+                logger, "SV munmap failed to free page at vaddr=0x{:x}, ptroot=0x{:x}",
+                vaddr + pgcnt * PAGESIZE, ptroot
+            );
             return -1;
         }
     }
@@ -233,6 +248,10 @@ int SV_supervisor<Trait>::alloc_one_page(const pagetable_t ptroot, const vaddr_t
 
     paddr = buddy.allocate(0);
     if (paddr == 0) {
+        SPDLOG_LOGGER_DEBUG(
+            logger, "SV failed to allocate physical memory for page at vaddr=0x{:x}, ptroot=0x{:x}",
+            vaddr, ptroot
+        );
         goto RET_ERR;
     }
     assert(paddr % PAGESIZE == 0);
